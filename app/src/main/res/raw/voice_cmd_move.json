@@ -1,0 +1,23 @@
+{
+  "name": "move",
+  "slotList": [
+    {
+      "name": "move_cmd",
+      "isOptional": false,
+      "word": [
+        "turn left",
+        "turn right",
+        "turn to me",
+        "go ahead",
+        "move back",
+        "look left",
+        "look right",
+        "look front",
+        "keep moving",
+        "speed up",
+        "slow down",
+        "stop there"
+      ]
+    }
+  ]
+}

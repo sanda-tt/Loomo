@@ -1,0 +1,12 @@
+{
+  "name": "common",
+  "slotList": [
+    {
+      "name": "common_cmd",
+      "isOptional": false,
+      "word": [
+        "bye loomo"
+      ]
+    }
+  ]
+}

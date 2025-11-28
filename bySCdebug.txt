@@ -1,0 +1,6 @@
+1. Add cmake.dir=C:\\Users\\changshu\\AppData\\Local\\Android\\Sdk\\cmake\\3.6.4111459  
+in Gradle Scripts->local.properties  to solve the "Downgrading Cmake" problem, because cmake 3.18.1 will cause error: xxxx-dirty
+2.  Change path and model definition in native-lib.cpp
+     yolo only works in debug mode
+3. Modifications in app->java->wander->CamViewListener2.java
+    No more repeated identical recognition!

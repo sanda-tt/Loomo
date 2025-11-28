@@ -1,0 +1,3 @@
+[submodule "app/src/main/cpp/util"]
+	path = app/src/main/cpp/util
+	url = git@gitee.com:sean_x/util.git

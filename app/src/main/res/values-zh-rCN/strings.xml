@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">路萌Demo</string>
+    <string name="on_speaker_binded">灯，等灯等灯</string>
+    <string name="face_verify_fail">人脸验证失败</string>
+    <string name="face_verify_succ">人脸验证成功</string>
+    <string name="face_verify_start">请验证人脸</string>
+    <string name="on_person_found">找到你了！</string>
+    <string name="look_for_person_start">我找不到你，你可以随时唤醒我喊我调整行进方向</string>
+    <string name="look_for_brightness_start">找不到人，那就寻找光明吧</string>
+    <string name="thinking">我考虑一下</string>
+    <string name="go_ahead">向着光明，前进</string>
+    <string name="voice_stop_speech_recog">路萌再见</string>
+    <string name="start_speech_recog">请吩咐</string>
+    <string name="voice_turn_left">左转</string>
+    <string name="voice_turn_right">右转</string>
+    <string name="voice_move_ahead">前进</string>
+    <string name="voice_move_back">后退</string>
+    <string name="voice_look_left">向左看</string>
+    <string name="voice_look_right">向右看</string>
+    <string name="speech_recog_timeout">再见，你可以再次唤醒我</string>
+    <string name="voice_turn_to_me">转向我</string>
+    <string name="voice_keep_moving">一直往前走</string>
+    <string name="voice_speed_up">再快一点</string>
+    <string name="voice_slow_down">再慢一点</string>
+    <string name="voice_stop_there">停下来</string>
+    <string name="voice_look_front">向前看</string>
+    <string name="btn_register_face">注册</string>
+</resources>

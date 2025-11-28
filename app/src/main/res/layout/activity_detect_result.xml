@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/frameLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0099cc"
+    tools:context=".DetectResultActivity">
+
+    <!-- The primary full-screen view. This can be replaced with whatever view
+         is needed to present your content, e.g. VideoView, SurfaceView,
+         TextureView, etc. -->
+
+    <!-- This FrameLayout insets its children based on system windows using
+         android:fitsSystemWindows. -->
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginBottom="4dp"
+        android:scaleType="fitXY"
+        android:src="@mipmap/ic_launcher"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btn_yes"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tips" />
+
+    <TextView
+        android:id="@+id/detect_result"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="TextView"
+        android:textAlignment="viewStart"
+        android:textAppearance="@style/TextAppearance.AppCompat.Display1"
+        app:layout_constraintEnd_toEndOf="@+id/btn_no"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/btn_yes"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Bicycle?" />
+
+    <Button
+        android:id="@+id/btn_yes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:background="@color/colorPrimary"
+        android:text="YES"
+        app:layout_constraintEnd_toStartOf="@+id/btn_no"
+        app:layout_constraintTop_toBottomOf="@+id/detect_result" />
+
+    <Button
+        android:id="@+id/btn_no"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="NO"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/btn_yes" />
+
+    <Button
+        android:id="@+id/btn_candidate_1"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="truck"
+        app:layout_constraintEnd_toEndOf="@+id/btn_no"
+        app:layout_constraintStart_toStartOf="@+id/btn_yes"
+        app:layout_constraintTop_toBottomOf="@+id/btn_no" />
+
+    <Button
+        android:id="@+id/btn_candidate_2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="banana"
+        app:layout_constraintEnd_toEndOf="@+id/btn_candidate_1"
+        app:layout_constraintStart_toStartOf="@+id/btn_candidate_1"
+        app:layout_constraintTop_toBottomOf="@+id/btn_candidate_1" />
+
+    <Button
+        android:id="@+id/btn_candidate_3"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="clock"
+        app:layout_constraintEnd_toEndOf="@+id/btn_candidate_2"
+        app:layout_constraintStart_toStartOf="@+id/btn_candidate_2"
+        app:layout_constraintTop_toBottomOf="@+id/btn_candidate_2" />
+
+    <Button
+        android:id="@+id/btn_custom"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="custom"
+        android:textColor="@color/colorPrimary"
+        app:layout_constraintEnd_toEndOf="@+id/btn_candidate_3"
+        app:layout_constraintStart_toStartOf="@+id/btn_candidate_3"
+        app:layout_constraintTop_toBottomOf="@+id/btn_candidate_3" />
+
+    <TextView
+        android:id="@+id/tips"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="8dp"
+        android:text="Am I right?"
+        app:layout_constraintEnd_toStartOf="@+id/detect_result"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+</android.support.constraint.ConstraintLayout>

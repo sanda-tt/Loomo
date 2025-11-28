@@ -1,0 +1,36 @@
+﻿2021-09-03 04:31:37.206 4527-5041/? E/cv::error(): OpenCV(4.1.0) Error: Assertion failed (!ssize.empty()) in resize, file E:/Common/opencv/opencv/modules/imgproc/src/resize.cpp, line 3718
+2021-09-03 04:31:37.207 4527-5041/? E/libc++abi: terminating with uncaught exception of type cv::Exception: OpenCV(4.1.0) E:/Common/opencv/opencv/modules/imgproc/src/resize.cpp:3718: error: (-215:Assertion failed) !ssize.empty() in function 'resize'
+
+--------- beginning of crash
+2021-09-03 04:31:37.207 4527-5041/? A/libc: Fatal signal 6 (SIGABRT), code -6 in tid 5041 (Thread-149)
+
+2021-09-03 04:31:37.582 2770-2770/? E/CRASHLOG: CRASH   5a5debe18106a939dca2  2021-09-03/04:31:37  JAVA_TOMBSTONE /data/logs/crashlog0_5a5debe18106a939dca2
+2021-09-03 04:31:37.606 2754-5032/? E/Surface: queueBuffer: error queuing buffer to SurfaceTexture, -32
+2021-09-03 04:31:37.606 2754-5032/? E/Camera3-OutputStream: returnBufferCheckedLocked: Stream 0: Error queueing buffer to native window: Broken pipe (-32)
+2021-09-03 04:31:37.606 2754-5032/? E/Camera3-Device: Can't return buffer to its stream: Broken pipe (-32)
+
+2021-09-03 04:31:37.608 2754-5034/? E/Camera2ClientBase: Error condition 3 reported by HAL, requestId 20000001
+2021-09-03 04:31:37.608 2754-5032/? E/Surface: queueBuffer: error queuing buffer to SurfaceTexture, -32
+2021-09-03 04:31:37.608 2754-5032/? E/Camera3-OutputStream: returnBufferCheckedLocked: Stream 0: Error queueing buffer to native window: Broken pipe (-32)
+2021-09-03 04:31:37.608 2754-5032/? E/Camera3-Device: Can't return buffer to its stream: Broken pipe (-32)
+
+
+2021-09-03 06:01:16.930 8780-8780/com.xs.ai.loomodemo I/OpenCV/StaticHelper: General configuration for OpenCV 4.1.0 =====================================
+2021-09-03 06:01:23.712 8780-8829/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 0
+2021-09-03 06:01:23.714 8780-8829/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 4
+2021-09-03 06:01:27.352 8780-8780/com.xs.ai.loomodemo I/OpenCV/StaticHelper: General configuration for OpenCV 4.1.0 =====================================
+2021-09-03 06:01:28.956 8780-8900/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 0
+2021-09-03 06:01:28.959 8780-8900/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 4
+2021-09-03 06:01:32.350 8780-8780/com.xs.ai.loomodemo I/OpenCV/StaticHelper: General configuration for OpenCV 4.1.0 =====================================
+2021-09-03 06:01:34.410 8780-8946/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 0
+2021-09-03 06:01:34.414 8780-8946/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 4
+2021-09-03 06:01:37.530 8780-8780/com.xs.ai.loomodemo I/OpenCV/StaticHelper: General configuration for OpenCV 4.1.0 =====================================
+2021-09-03 06:01:39.112 8780-8994/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 0
+2021-09-03 06:01:39.115 8780-8994/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 4
+2021-09-03 06:01:42.081 8780-8780/com.xs.ai.loomodemo I/OpenCV/StaticHelper: General configuration for OpenCV 4.1.0 =====================================
+2021-09-03 06:01:43.163 8780-9041/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 0
+2021-09-03 06:01:43.163 8780-9041/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 112
+2021-09-03 06:01:43.163 8780-9041/com.xs.ai.loomodemo I/CAMVIEWLISTENER: =========== 264
+2021-09-03 06:01:43.616 8780-9041/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 0
+2021-09-03 06:01:43.616 8780-9041/com.xs.ai.loomodemo I/CAMVIEWLISTENER: ============ 111
+2021-09-03 06:01:43.616 8780-9041/com.xs.ai.loomodemo I/CAMVIEWLISTENER: =========== 264

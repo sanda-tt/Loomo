@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">FollowWander</string>
+    <string name="btn_follow_me_start" translatable="false">Follow Me</string>
+    <string name="btn_follow_me_stop" translatable="false">STOP</string>
+    <string name="on_speaker_binded">May the force be with you.</string>
+    <string name="face_verify_fail">Sorry but cannot recognize you!</string>
+    <string name="face_verify_succ">It\'s you! I can remember now.</string>
+    <string name="face_verify_start">Show me your face</string>
+    <string name="on_person_found">Aha! Found you!</string>
+    <string name="look_for_person_start">I\'ll try to find you. You can wake up and order me anytime.</string>
+    <string name="look_for_brightness_start">Now I\'m looking for brightness</string>
+    <string name="thinking">I\'m thinking</string>
+    <string name="go_ahead">Let\'s go!</string>
+    <string name="voice_stop_speech_recog">bye loomo</string>
+    <string name="start_speech_recog">at your service</string>
+    <string name="voice_turn_left">turn left</string>
+    <string name="voice_turn_right">turn right</string>
+    <string name="voice_move_ahead">go ahead</string>
+    <string name="voice_move_back">move back</string>
+    <string name="voice_look_left">look left</string>
+    <string name="voice_look_right">look right</string>
+    <string name="speech_recog_timeout">See you. You can wake up me again.</string>
+    <string name="voice_turn_to_me">turn to me</string>
+    <string name="voice_keep_moving">keep moving</string>
+    <string name="voice_speed_up">speed up</string>
+    <string name="voice_slow_down">slow down</string>
+    <string name="voice_stop_there">stop there</string>
+    <string name="voice_look_front">look front</string>
+    <string name="btn_register_face">Register</string>
+    <string name="btn_face_manage" translatable="false">Manage</string>
+    <string name="btn_wander_start" translatable="false">Wander</string>
+    <string name="btn_wander_stop" translatable="false">STOP</string>
+
+    <string name="title_activity_detect_result">DetectResultActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+</resources>
