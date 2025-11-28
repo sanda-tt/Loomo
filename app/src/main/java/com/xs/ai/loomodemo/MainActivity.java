@@ -3,7 +3,7 @@
  * 邮箱：sandatt517@outlook.com
  * 创建日期：2025-10-20
  * 版权声明：本代码基于 MIT 协议开源，可自由使用、修改、分发，需保留原作者声明
- * 项目地址：https://github.com/sanda-tt/LoomoDemo
+ * 项目地址：https://github.com/sanda-tt/Loomo
  * 功能：道路自动驾驶，任务追随，漫游
  */
 
