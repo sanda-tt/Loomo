@@ -30,9 +30,9 @@ public class RoadFollower {
     private float mAngularGain = 0.002f;       // 角速度增益
     private float mMaxAngularVelocity = 0.3f;  // 最大角速度限制
 
-    // 右侧道路跟随参数
-    private float mRightLaneDistance = 250f;   // 与右侧道路的理想距离（像素）
-    private float mDistanceTolerance = 50f;    // 距离容差
+    // 右侧道路跟随参数 - 增加距离让机器人离边缘更远
+    private float mRightLaneDistance = 350f;   // 与右侧道路的理想距离（像素）- 从250增加到350
+    private float mDistanceTolerance = 70f;    // 距离容差 - 从50增加到70
 
     // 速度倍率控制
     private float mSpeedMultiplier = 1.0f;
@@ -57,9 +57,9 @@ public class RoadFollower {
         mSpeedMultiplier = Math.max(0.5f, Math.min(2.0f, multiplier));
     }
 
-    // 设置与右侧道路的距离
+    // 设置与右侧道路的距离 - 扩大可设置范围
     public void setRightLaneDistance(float distance) {
-        mRightLaneDistance = Math.max(100f, Math.min(400f, distance));
+        mRightLaneDistance = Math.max(200f, Math.min(500f, distance)); // 范围扩大到200-500
     }
 
     public Mat processFrame(Mat inputFrame) {
@@ -80,12 +80,12 @@ public class RoadFollower {
             Mat edges = new Mat();
             Imgproc.Canny(blurred, edges, 50, 150);
 
-            // 4. 区域掩码（重点关注图像右侧区域）
+            // 4. 区域掩码（重点关注图像右侧区域，但扩大左侧检测范围）
             Mat mask = new Mat(edges.size(), edges.type(), new Scalar(0));
             List<MatOfPoint> contours = new ArrayList<>();
             MatOfPoint roi = new MatOfPoint(
-                    new Point(processed.width() * 0.4, processed.height()), // 从宽度40%开始
-                    new Point(processed.width() * 0.4, processed.height() * 0.4),
+                    new Point(processed.width() * 0.3, processed.height()), // 从宽度30%开始（原来是40%）
+                    new Point(processed.width() * 0.3, processed.height() * 0.4),
                     new Point(processed.width(), processed.height() * 0.4),
                     new Point(processed.width(), processed.height())
             );
@@ -99,7 +99,7 @@ public class RoadFollower {
             Mat lines = new Mat();
             Imgproc.HoughLinesP(maskedEdges, lines, 1, Math.PI/180, 40, 30, 10);
 
-            // 6. 分析直线并控制移动 - 只关注右侧道路
+            // 6. 分析直线并控制移动 - 只关注最靠近中心线的右侧道路边线
             controlMovement(lines, processed);
 
             // 绘制检测结果
@@ -141,78 +141,87 @@ public class RoadFollower {
         }
 
         if (rightLaneCandidates.isEmpty()) {
-            // 没有检测到右侧道路，缓慢前进并轻微向右搜索
+            // 没有检测到右侧道路，缓慢前进并轻微向左偏移（因为要离右侧边缘更远）
             SimpleMoveWrap.setLinearVelocity(mMinLinearVelocity * mSpeedMultiplier);
-            SimpleMoveWrap.setAngularVelocity(-0.08f); // 轻微向右转以寻找右侧道路
+            SimpleMoveWrap.setAngularVelocity(0.05f); // 轻微向左转以远离右侧边缘
             return;
         }
 
-        // 找到最可靠的右侧车道线（通常是最长且斜率适中的线）
-        LineSegment bestRightLane = findBestRightLane(rightLaneCandidates);
+        // 找到最靠近中心线的右侧道路边线
+        LineSegment closestRightLane = findClosestRightLane(rightLaneCandidates, frameCenter, frameBottom);
 
-        if (bestRightLane != null) {
+        if (closestRightLane != null) {
             // 计算与右侧道路的交互点（在图像底部的位置）
-            double rightLaneAtBottom = bestRightLane.getXAtY(frameBottom);
+            double rightLaneAtBottom = closestRightLane.getXAtY(frameBottom);
 
-            // 计算目标位置：右侧道路位置减去理想距离
+            // 计算目标位置：右侧道路位置减去理想距离（更大的距离）
             double targetPosition = rightLaneAtBottom - mRightLaneDistance;
 
             // 计算误差：目标位置与图像中心的偏差
             double error = targetPosition - frameCenter;
 
-            // 计算角速度控制
+            // 计算角速度控制 - 使用更平滑的控制
             float angularVel = (float)(error * mAngularGain);
             angularVel = Math.max(-mMaxAngularVelocity, Math.min(mMaxAngularVelocity, angularVel));
 
-            // 根据距离误差调整线速度
+            // 根据距离误差调整线速度 - 更保守的速度控制
             float linearVel = mBaseLinearVelocity * mSpeedMultiplier;
             double distanceError = Math.abs(error);
 
             if (distanceError > mDistanceTolerance * 2) {
-                // 距离偏差较大时减速
-                linearVel *= 0.6f;
+                // 距离偏差较大时显著减速
+                linearVel *= 0.5f;
             } else if (distanceError > mDistanceTolerance) {
-                // 距离偏差中等时轻微减速
-                linearVel *= 0.8f;
+                // 距离偏差中等时减速
+                linearVel *= 0.7f;
             }
 
             // 根据转向幅度进一步调整速度
-            if (Math.abs(angularVel) > 0.15f) {
-                linearVel *= 0.7f;
+            if (Math.abs(angularVel) > 0.12f) {
+                linearVel *= 0.6f;
             }
+
+            // 设置最终速度，确保不低于最小速度
+            linearVel = Math.max(mMinLinearVelocity * mSpeedMultiplier, linearVel);
 
             SimpleMoveWrap.setLinearVelocity(linearVel);
             SimpleMoveWrap.setAngularVelocity(angularVel);
 
         } else {
-            // 没有找到合适的右侧车道线，缓慢前进并搜索
+            // 没有找到合适的右侧车道线，缓慢前进并轻微向左
             SimpleMoveWrap.setLinearVelocity(mMinLinearVelocity * mSpeedMultiplier);
-            SimpleMoveWrap.setAngularVelocity(-0.05f);
+            SimpleMoveWrap.setAngularVelocity(0.03f);
         }
     }
 
-    private LineSegment findBestRightLane(List<LineSegment> candidates) {
+    /**
+     * 找到最靠近中心线的右侧道路边线
+     * @param candidates 候选的右侧车道线列表
+     * @param frameCenter 图像中心x坐标
+     * @param frameBottom 图像底部y坐标
+     * @return 最靠近中心线的右侧车道线
+     */
+    private LineSegment findClosestRightLane(List<LineSegment> candidates, int frameCenter, int frameBottom) {
         if (candidates.isEmpty()) return null;
 
-        // 优先选择长度较长且斜率适中的线
-        LineSegment bestLane = candidates.get(0);
-        double bestScore = 0;
+        LineSegment closestLane = null;
+        double minDistance = Double.MAX_VALUE;
 
         for (LineSegment lane : candidates) {
-            double length = lane.length();
-            double slope = Math.abs(lane.slope);
+            // 计算该车道线在图像底部的x坐标
+            double laneXAtBottom = lane.getXAtY(frameBottom);
 
-            // 评分标准：长度权重较高，斜率适中得分高
-            double slopeScore = (slope > 0.5 && slope < 2.0) ? 1.0 : 0.5;
-            double score = length * slopeScore;
+            // 计算与中心线的距离（绝对值）
+            double distanceToCenter = Math.abs(laneXAtBottom - frameCenter);
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestLane = lane;
+            // 只考虑在中心线右侧的车道线（x坐标大于中心线）
+            if (laneXAtBottom > frameCenter && distanceToCenter < minDistance) {
+                minDistance = distanceToCenter;
+                closestLane = lane;
             }
         }
 
-        return bestLane;
+        return closestLane;
     }
 
     private void drawDetectionResult(Mat frame, Mat lines, Mat edges) {
@@ -221,35 +230,68 @@ public class RoadFollower {
         Imgproc.cvtColor(edges, colorEdges, Imgproc.COLOR_GRAY2RGBA);
         Core.addWeighted(frame, 0.8, colorEdges, 0.2, 0, frame);
 
-        // 绘制检测到的右侧直线（绿色）
+        int frameCenter = frame.width() / 2;
+        int frameBottom = frame.height();
+
+        // 找到最靠近中心线的右侧道路边线并绘制
+        List<LineSegment> rightLaneCandidates = new ArrayList<>();
+
         for (int i = 0; i < lines.rows(); i++) {
             double[] line = lines.get(i, 0);
             double x1 = line[0], y1 = line[1], x2 = line[2], y2 = line[3];
 
             if (x2 - x1 != 0) {
                 double slope = (y2 - y1) / (x2 - x1);
-                if (slope > 0.3) { // 只绘制右侧车道线
-                    Imgproc.line(frame,
-                            new Point(x1, y1),
-                            new Point(x2, y2),
-                            new Scalar(0, 255, 0, 255), 3);
+                if (slope > 0.3) { // 只处理右侧车道线
+                    rightLaneCandidates.add(new LineSegment(x1, y1, x2, y2, slope));
                 }
             }
         }
 
+        // 绘制所有检测到的右侧直线（浅绿色）
+        for (LineSegment lane : rightLaneCandidates) {
+            Imgproc.line(frame,
+                    new Point(lane.x1, lane.y1),
+                    new Point(lane.x2, lane.y2),
+                    new Scalar(0, 200, 0, 255), 2);
+        }
+
+        // 找到并突出显示最靠近中心线的右侧道路边线（红色）
+        LineSegment closestLane = findClosestRightLane(rightLaneCandidates, frameCenter, frameBottom);
+        if (closestLane != null) {
+            Imgproc.line(frame,
+                    new Point(closestLane.x1, closestLane.y1),
+                    new Point(closestLane.x2, closestLane.y2),
+                    new Scalar(255, 0, 0, 255), 4);
+
+            // 绘制该车道线在底部的投影点
+            double bottomX = closestLane.getXAtY(frameBottom);
+            Imgproc.circle(frame, new Point(bottomX, frameBottom), 8,
+                    new Scalar(255, 0, 0, 255), -1);
+
+            // 绘制目标位置（机器人应该到达的位置）
+            double targetX = bottomX - mRightLaneDistance;
+            Imgproc.circle(frame, new Point(targetX, frameBottom), 10,
+                    new Scalar(0, 255, 255, 255), -1);
+        }
+
         // 绘制中心线（蓝色）
-        int centerX = frame.width() / 2;
         Imgproc.line(frame,
-                new Point(centerX, 0),
-                new Point(centerX, frame.height()),
+                new Point(frameCenter, 0),
+                new Point(frameCenter, frame.height()),
                 new Scalar(255, 0, 0, 255), 2);
 
-        // 绘制理想距离线（黄色）
-        int targetX = centerX + (int)mRightLaneDistance;
+        // 绘制理想距离线（黄色）- 现在离中心线更远
+        int targetLineX = frameCenter + (int)mRightLaneDistance;
         Imgproc.line(frame,
-                new Point(targetX, 0),
-                new Point(targetX, frame.height()),
+                new Point(targetLineX, 0),
+                new Point(targetLineX, frame.height()),
                 new Scalar(255, 255, 0, 255), 2);
+
+        // 添加距离信息文本
+        String distanceText = "Right Distance: " + (int)mRightLaneDistance + "px";
+        Imgproc.putText(frame, distanceText, new Point(10, 30),
+                Imgproc.FONT_HERSHEY_SIMPLEX, 0.7, new Scalar(255, 255, 255, 255), 2);
 
         colorEdges.release();
     }
@@ -288,5 +330,10 @@ public class RoadFollower {
 
     public float getRightLaneDistance() {
         return mRightLaneDistance;
+    }
+
+    // 新增方法：直接设置更大的距离
+    public void setSafeDistance() {
+        mRightLaneDistance = 400f; // 设置一个更安全的距离
     }
 }
