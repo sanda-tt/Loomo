@@ -230,7 +230,7 @@ public class MainActivity extends Activity {
             btnRoadFollow.setText("停止道路跟随");
         }
 
-        SegwayService.speak("开始道路跟随");
+        SegwayService.speak("大小姐驾到统统闪开");
     }
 
     protected void stopRoadFollowing() {

@@ -21,14 +21,18 @@ public class RoadFollower {
     private Context mContext;
     private boolean mIsRunning = false;
 
-    // 速度控制参数 - 修改这里来调整速度
-    private float mBaseLinearVelocity = 0.8f;  // 从0.5f提升到0.8f，增加60%速度
+    // 速度控制参数
+    private float mBaseLinearVelocity = 0.8f;  // 基础线速度
     private float mMaxLinearVelocity = 1.0f;   // 最大线速度
     private float mMinLinearVelocity = 0.2f;   // 最小线速度
 
-    // 角速度控制参数 - 修改这里来降低转动速度
-    private float mAngularGain = 0.002f;       // 从0.005f降低到0.002f，减少60%角速度
+    // 角速度控制参数
+    private float mAngularGain = 0.002f;       // 角速度增益
     private float mMaxAngularVelocity = 0.3f;  // 最大角速度限制
+
+    // 右侧道路跟随参数
+    private float mRightLaneDistance = 250f;   // 与右侧道路的理想距离（像素）
+    private float mDistanceTolerance = 50f;    // 距离容差
 
     // 速度倍率控制
     private float mSpeedMultiplier = 1.0f;
@@ -48,9 +52,14 @@ public class RoadFollower {
         SimpleMoveWrap.setAngularVelocity(0.0f);
     }
 
-    // 设置速度倍率（用户调整时的限制速度调整
+    // 设置速度倍率
     public void setSpeedMultiplier(float multiplier) {
         mSpeedMultiplier = Math.max(0.5f, Math.min(2.0f, multiplier));
+    }
+
+    // 设置与右侧道路的距离
+    public void setRightLaneDistance(float distance) {
+        mRightLaneDistance = Math.max(100f, Math.min(400f, distance));
     }
 
     public Mat processFrame(Mat inputFrame) {
@@ -71,13 +80,13 @@ public class RoadFollower {
             Mat edges = new Mat();
             Imgproc.Canny(blurred, edges, 50, 150);
 
-            // 4. 区域掩码（只关注图像下半部分的路面）
+            // 4. 区域掩码（重点关注图像右侧区域）
             Mat mask = new Mat(edges.size(), edges.type(), new Scalar(0));
             List<MatOfPoint> contours = new ArrayList<>();
             MatOfPoint roi = new MatOfPoint(
-                    new Point(0, processed.height()),
-                    new Point(0, processed.height() * 0.6),
-                    new Point(processed.width(), processed.height() * 0.6),
+                    new Point(processed.width() * 0.4, processed.height()), // 从宽度40%开始
+                    new Point(processed.width() * 0.4, processed.height() * 0.4),
+                    new Point(processed.width(), processed.height() * 0.4),
                     new Point(processed.width(), processed.height())
             );
             contours.add(roi);
@@ -88,9 +97,9 @@ public class RoadFollower {
 
             // 5. 霍夫变换检测直线
             Mat lines = new Mat();
-            Imgproc.HoughLinesP(maskedEdges, lines, 1, Math.PI/180, 50, 50, 10);
+            Imgproc.HoughLinesP(maskedEdges, lines, 1, Math.PI/180, 40, 30, 10);
 
-            // 6. 分析直线并控制移动
+            // 6. 分析直线并控制移动 - 只关注右侧道路
             controlMovement(lines, processed);
 
             // 绘制检测结果
@@ -112,93 +121,98 @@ public class RoadFollower {
     }
 
     private void controlMovement(Mat lines, Mat debugFrame) {
-        if (lines.empty()) {
-            // 没有检测到道路线，缓慢前进并小范围搜索
-            SimpleMoveWrap.setLinearVelocity(mMinLinearVelocity * mSpeedMultiplier);
-            SimpleMoveWrap.setAngularVelocity(0.05f); // 降低搜索时的角速度
-            return;
-        }
+        List<LineSegment> rightLaneCandidates = new ArrayList<>();
+        int frameCenter = debugFrame.width() / 2;
+        int frameBottom = debugFrame.height();
 
-        double leftLaneAvg = 0, rightLaneAvg = 0;
-        int leftCount = 0, rightCount = 0;
-
+        // 只分析右侧车道线（正斜率的直线）
         for (int i = 0; i < lines.rows(); i++) {
             double[] line = lines.get(i, 0);
             double x1 = line[0], y1 = line[1], x2 = line[2], y2 = line[3];
 
             // 计算直线斜率
-            if (x2 - x1 == 0) continue; // 避免除零
+            if (x2 - x1 == 0) continue;
             double slope = (y2 - y1) / (x2 - x1);
 
-            // 过滤水平线
-            if (Math.abs(slope) < 0.5) continue;
-
-            if (slope < 0) {
-                // 左车道线
-                leftLaneAvg += (x1 + x2) / 2;
-                leftCount++;
-            } else {
-                // 右车道线
-                rightLaneAvg += (x1 + x2) / 2;
-                rightCount++;
+            // 只关注右侧车道线（正斜率）且过滤接近水平的线
+            if (slope > 0.3 && slope < 5.0) {
+                rightLaneCandidates.add(new LineSegment(x1, y1, x2, y2, slope));
             }
         }
 
-        // 计算控制指令
-        if (leftCount > 0) leftLaneAvg /= leftCount;
-        if (rightCount > 0) rightLaneAvg /= rightCount;
+        if (rightLaneCandidates.isEmpty()) {
+            // 没有检测到右侧道路，缓慢前进并轻微向右搜索
+            SimpleMoveWrap.setLinearVelocity(mMinLinearVelocity * mSpeedMultiplier);
+            SimpleMoveWrap.setAngularVelocity(-0.08f); // 轻微向右转以寻找右侧道路
+            return;
+        }
 
-        int frameCenter = debugFrame.width() / 2;
-        float linearVel = mBaseLinearVelocity * mSpeedMultiplier; // 应用速度倍率
+        // 找到最可靠的右侧车道线（通常是最长且斜率适中的线）
+        LineSegment bestRightLane = findBestRightLane(rightLaneCandidates);
 
-        if (leftCount > 0 && rightCount > 0) {
-            // 检测到两条车道线，保持在中间
-            double roadCenter = (leftLaneAvg + rightLaneAvg) / 2;
-            double error = roadCenter - frameCenter;
-            float angularVel = (float)(error * mAngularGain); // 使用新的角速度增益
+        if (bestRightLane != null) {
+            // 计算与右侧道路的交互点（在图像底部的位置）
+            double rightLaneAtBottom = bestRightLane.getXAtY(frameBottom);
 
-            // 限制角速度最大值
+            // 计算目标位置：右侧道路位置减去理想距离
+            double targetPosition = rightLaneAtBottom - mRightLaneDistance;
+
+            // 计算误差：目标位置与图像中心的偏差
+            double error = targetPosition - frameCenter;
+
+            // 计算角速度控制
+            float angularVel = (float)(error * mAngularGain);
             angularVel = Math.max(-mMaxAngularVelocity, Math.min(mMaxAngularVelocity, angularVel));
 
-            // 根据转向幅度调整线速度 - 小幅度转向时不降速
-            if (Math.abs(angularVel) > 0.15f) {
-                linearVel *= 0.7f; // 中等转向时稍微降速
-            } else if (Math.abs(angularVel) > 0.25f) {
-                linearVel *= 0.4f; // 大幅度转向时显著降速
+            // 根据距离误差调整线速度
+            float linearVel = mBaseLinearVelocity * mSpeedMultiplier;
+            double distanceError = Math.abs(error);
+
+            if (distanceError > mDistanceTolerance * 2) {
+                // 距离偏差较大时减速
+                linearVel *= 0.6f;
+            } else if (distanceError > mDistanceTolerance) {
+                // 距离偏差中等时轻微减速
+                linearVel *= 0.8f;
             }
 
-            SimpleMoveWrap.setLinearVelocity(linearVel);
-            SimpleMoveWrap.setAngularVelocity(angularVel);
-
-        } else if (leftCount > 0) {
-            // 只检测到左车道线，保持距离
-            double error = (leftLaneAvg + 300) - frameCenter; // 假设车道宽600像素***********************************************************
-            float angularVel = (float)(error * mAngularGain);
-            angularVel = Math.max(-mMaxAngularVelocity, Math.min(mMaxAngularVelocity, angularVel));
-
-            // 单边检测时适当降低速度
-            linearVel *= 0.8f;
-
-            SimpleMoveWrap.setLinearVelocity(linearVel);
-            SimpleMoveWrap.setAngularVelocity(angularVel);
-
-        } else if (rightCount > 0) {
-            // 只检测到右车道线，保持距离**************************************************
-            double error = (rightLaneAvg - 300) - frameCenter;
-            float angularVel = (float)(error * mAngularGain);
-            angularVel = Math.max(-mMaxAngularVelocity, Math.min(mMaxAngularVelocity, angularVel));
-
-            // 单边检测时适当降低速度
-            linearVel *= 0.8f;
+            // 根据转向幅度进一步调整速度
+            if (Math.abs(angularVel) > 0.15f) {
+                linearVel *= 0.7f;
+            }
 
             SimpleMoveWrap.setLinearVelocity(linearVel);
             SimpleMoveWrap.setAngularVelocity(angularVel);
 
         } else {
-            // 没有检测到车道线，直行*************************************************************
+            // 没有找到合适的右侧车道线，缓慢前进并搜索
             SimpleMoveWrap.setLinearVelocity(mMinLinearVelocity * mSpeedMultiplier);
-            SimpleMoveWrap.setAngularVelocity(0.0f);
+            SimpleMoveWrap.setAngularVelocity(-0.05f);
         }
+    }
+
+    private LineSegment findBestRightLane(List<LineSegment> candidates) {
+        if (candidates.isEmpty()) return null;
+
+        // 优先选择长度较长且斜率适中的线
+        LineSegment bestLane = candidates.get(0);
+        double bestScore = 0;
+
+        for (LineSegment lane : candidates) {
+            double length = lane.length();
+            double slope = Math.abs(lane.slope);
+
+            // 评分标准：长度权重较高，斜率适中得分高
+            double slopeScore = (slope > 0.5 && slope < 2.0) ? 1.0 : 0.5;
+            double score = length * slopeScore;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestLane = lane;
+            }
+        }
+
+        return bestLane;
     }
 
     private void drawDetectionResult(Mat frame, Mat lines, Mat edges) {
@@ -207,22 +221,60 @@ public class RoadFollower {
         Imgproc.cvtColor(edges, colorEdges, Imgproc.COLOR_GRAY2RGBA);
         Core.addWeighted(frame, 0.8, colorEdges, 0.2, 0, frame);
 
-        // 绘制检测到的直线
+        // 绘制检测到的右侧直线（绿色）
         for (int i = 0; i < lines.rows(); i++) {
             double[] line = lines.get(i, 0);
-            Imgproc.line(frame,
-                    new Point(line[0], line[1]),
-                    new Point(line[2], line[3]),
-                    new Scalar(0, 255, 0, 255), 3);
+            double x1 = line[0], y1 = line[1], x2 = line[2], y2 = line[3];
+
+            if (x2 - x1 != 0) {
+                double slope = (y2 - y1) / (x2 - x1);
+                if (slope > 0.3) { // 只绘制右侧车道线
+                    Imgproc.line(frame,
+                            new Point(x1, y1),
+                            new Point(x2, y2),
+                            new Scalar(0, 255, 0, 255), 3);
+                }
+            }
         }
 
-        // 绘制中心线
+        // 绘制中心线（蓝色）
+        int centerX = frame.width() / 2;
         Imgproc.line(frame,
-                new Point(frame.width()/2, 0),
-                new Point(frame.width()/2, frame.height()),
+                new Point(centerX, 0),
+                new Point(centerX, frame.height()),
                 new Scalar(255, 0, 0, 255), 2);
 
+        // 绘制理想距离线（黄色）
+        int targetX = centerX + (int)mRightLaneDistance;
+        Imgproc.line(frame,
+                new Point(targetX, 0),
+                new Point(targetX, frame.height()),
+                new Scalar(255, 255, 0, 255), 2);
+
         colorEdges.release();
+    }
+
+    // 内部类：表示线段
+    private static class LineSegment {
+        double x1, y1, x2, y2, slope;
+
+        LineSegment(double x1, double y1, double x2, double y2, double slope) {
+            this.x1 = x1;
+            this.y1 = y1;
+            this.x2 = x2;
+            this.y2 = y2;
+            this.slope = slope;
+        }
+
+        double length() {
+            return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+
+        double getXAtY(double y) {
+            // 根据直线方程计算在指定y值处的x坐标
+            if (y1 == y2) return (x1 + x2) / 2;
+            return x1 + (y - y1) * (x2 - x1) / (y2 - y1);
+        }
     }
 
     // 获取当前速度设置（用于调试）
@@ -232,5 +284,9 @@ public class RoadFollower {
 
     public float getAngularGain() {
         return mAngularGain;
+    }
+
+    public float getRightLaneDistance() {
+        return mRightLaneDistance;
     }
 }
