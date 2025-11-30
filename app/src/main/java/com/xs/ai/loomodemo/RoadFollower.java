@@ -22,16 +22,16 @@ public class RoadFollower {
     private boolean mIsRunning = false;
 
     // 速度控制参数
-    private float mBaseLinearVelocity = 0.8f;  // 基础线速度
-    private float mMaxLinearVelocity = 1.0f;   // 最大线速度
-    private float mMinLinearVelocity = 0.2f;   // 最小线速度
+    private float mBaseLinearVelocity = 0.5f;  // 基础线速度
+    private float mMaxLinearVelocity = 0.8f;   // 最大线速度
+    private float mMinLinearVelocity = 0.1f;   // 最小线速度
 
     // 角速度控制参数
-    private float mAngularGain = 0.002f;       // 角速度增益
-    private float mMaxAngularVelocity = 0.3f;  // 最大角速度限制
+    private float mAngularGain = 0.001f;       // 角速度增益
+    private float mMaxAngularVelocity = 0.25f;  // 最大角速度限制
 
     // 右侧道路跟随参数 - 增加距离让机器人离边缘更远
-    private float mRightLaneDistance = 350f;   // 与右侧道路的理想距离（像素）- 从250增加到350
+    private float mRightLaneDistance = 260f;   // 与右侧道路的理想距离（像素）- 从250增加到350
     private float mDistanceTolerance = 70f;    // 距离容差 - 从50增加到70
 
     // 速度倍率控制
