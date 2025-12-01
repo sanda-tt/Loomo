@@ -84,10 +84,10 @@ public class RoadFollower {
             Mat mask = new Mat(edges.size(), edges.type(), new Scalar(0));
             List<MatOfPoint> contours = new ArrayList<>();
             MatOfPoint roi = new MatOfPoint(
-                    new Point(0, processed.height()),                          // 从左下角开始
-                    new Point(0, processed.height() * 0.4),                    // 左上
-                    new Point(processed.width() * 0.7, processed.height() * 0.4), // 宽度 70%
-                    new Point(processed.width() * 0.7, processed.height())        // 底部 70%
+                    new Point(0, processed.height()),                  // 左下
+                    new Point(processed.width() * 0.4, processed.height()),  // 0.4W, 下边
+                    new Point(processed.width() * 0.3, processed.height() * 0.4), // 0.3W, 上边
+                    new Point(0, processed.height() * 0.4)             // 左上
             );
             contours.add(roi);
             Imgproc.fillPoly(mask, contours, new Scalar(255));
