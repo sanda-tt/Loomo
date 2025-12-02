@@ -18,14 +18,15 @@ public class VoiceCommand {
     private static class VoiceCommandLoader {
         private static final VoiceCommand INSTANCE = new VoiceCommand();
     }
-    static VoiceCommand getInstance() {
+    public static VoiceCommand getInstance() {
         return VoiceCommandLoader.INSTANCE;
     }
 
-    static void init(final Context context) {
+    public static void init(final Context context) {
         VoiceCommandLoader.INSTANCE.mContext = context;
-
         VoiceCommandLoader.INSTANCE.mActionVoice = new HashMap<String, ACTION>();
+
+        // --- 保留原有的资源映射 ---
         VoiceCommandLoader.INSTANCE.mActionVoice.put(context.getString(R.string.voice_turn_left), ACTION.TURN_LEFT);
         VoiceCommandLoader.INSTANCE.mActionVoice.put(context.getString(R.string.voice_turn_right), ACTION.TURN_RIGHT);
         VoiceCommandLoader.INSTANCE.mActionVoice.put(context.getString(R.string.voice_turn_to_me), ACTION.TURN_TO_ME);
@@ -39,6 +40,32 @@ public class VoiceCommand {
         VoiceCommandLoader.INSTANCE.mActionVoice.put(context.getString(R.string.voice_slow_down), ACTION.SLOW_DOWN);
         VoiceCommandLoader.INSTANCE.mActionVoice.put(context.getString(R.string.voice_stop_there), ACTION.STOP_THERE);
         VoiceCommandLoader.INSTANCE.mActionVoice.put(context.getString(R.string.voice_stop_speech_recog), ACTION.BYE);
+
+        // --- 中文指令映射 ---
+        // 1. 基础运动
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("前进", ACTION.MOVE_AHEAD);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("向前", ACTION.MOVE_AHEAD);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("后退", ACTION.MOVE_BACK);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("向后", ACTION.MOVE_BACK);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("左转", ACTION.TURN_LEFT);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("向左", ACTION.TURN_LEFT);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("右转", ACTION.TURN_RIGHT);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("向右", ACTION.TURN_RIGHT);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("停止", ACTION.STOP_THERE);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("停下", ACTION.STOP_THERE);
+
+        // 2. 微调指令 (新增)
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("左微调", ACTION.TURN_LEFT_SMALL);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("向左一点", ACTION.TURN_LEFT_SMALL);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("右微调", ACTION.TURN_RIGHT_SMALL);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("向右一点", ACTION.TURN_RIGHT_SMALL);
+
+        // 3. 道路跟随指令
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("开始道路跟随", ACTION.START_ROAD_FOLLOW);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("进入道路跟随", ACTION.START_ROAD_FOLLOW);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("退出道路跟随", ACTION.STOP_ROAD_FOLLOW);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("停止道路跟随", ACTION.STOP_ROAD_FOLLOW);
+        VoiceCommandLoader.INSTANCE.mActionVoice.put("关闭道路跟随", ACTION.STOP_ROAD_FOLLOW);
     }
 
     private HashMap<String, ACTION> mActionVoice;
@@ -55,7 +82,6 @@ public class VoiceCommand {
     private boolean loadCommand(int rawResourceId) {
         String grammarJson;
         try {
-            // json 文件需要以“\n”换行，中文语言时，slot 不能包含任何英文字母或数字，同样，英文语言也只能包含英文
             InputStream in_s = mContext.getResources().openRawResource(rawResourceId);
             byte[] b = new byte[in_s.available()];
             in_s.read(b);
@@ -65,7 +91,6 @@ public class VoiceCommand {
             Log.e(TAG, "loadCommand: addGrammarConstraint " + rawResourceId + " exception: " + e.getMessage());
             return false;
         }
-
         return true;
     }
 
@@ -83,15 +108,31 @@ public class VoiceCommand {
         SPEED_UP,
         SLOW_DOWN,
         STOP_THERE,
-        BYE
+        BYE,
+        // --- 新增动作 ---
+        START_ROAD_FOLLOW,
+        STOP_ROAD_FOLLOW,
+        TURN_LEFT_SMALL, // 左微调
+        TURN_RIGHT_SMALL // 右微调
     }
 
-    ACTION parseCommand(String words) {
+    public ACTION parseCommand(String words) {
         if (mActionVoice.containsKey(words))
             return mActionVoice.get(words);
+
+        // 模糊匹配逻辑
+        if (words.contains("左微调") || words.contains("向左一点")) return ACTION.TURN_LEFT_SMALL;
+        if (words.contains("右微调") || words.contains("向右一点")) return ACTION.TURN_RIGHT_SMALL;
+
+        if (words.contains("前进") || words.contains("向前")) return ACTION.MOVE_AHEAD;
+        if (words.contains("后退") || words.contains("向后")) return ACTION.MOVE_BACK;
+        if (words.contains("左转")) return ACTION.TURN_LEFT;
+        if (words.contains("右转")) return ACTION.TURN_RIGHT;
+        if (words.contains("停")) return ACTION.STOP_THERE;
+        if (words.contains("开始道路跟随") || words.contains("进入道路跟随")) return ACTION.START_ROAD_FOLLOW;
+        if (words.contains("停止道路跟随") || words.contains("退出道路跟随")) return ACTION.STOP_ROAD_FOLLOW;
 
         Log.w(TAG, "parseCommand unknown words: " + words);
         return ACTION.UNKNOWN;
     }
-
 }
