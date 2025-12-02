@@ -25,7 +25,7 @@ public class FollowMe implements AutoCloseable {
     private boolean mRun = false;
 
     private long mLastObjectTime = System.currentTimeMillis();
-    private static final long OBJECT_LOST_MS = 5000; // 认定目标丢失的时间
+    private static final long OBJECT_LOST_MS = 5000;
 
     private Context mContext;
 
@@ -39,8 +39,8 @@ public class FollowMe implements AutoCloseable {
 
     public enum STATUS_ {
         NOT_STARTED,
-        FOLLOWING, // 正在跟随目标
-        LOOK_FOR_TARGET, // 正在寻找目标
+        FOLLOWING,
+        LOOK_FOR_TARGET,
     }
 
     private STATUS_ mStatus = STATUS_.NOT_STARTED;
@@ -53,17 +53,6 @@ public class FollowMe implements AutoCloseable {
         mTargetSeeker.updateBrightness(angle, brightness);
     }
 
-//    public void showToast(final String msg) {
-//        Handler mainHandler = new Handler(mContext.getMainLooper()/*Looper.getMainLooper()*/);
-//        Runnable myRunnable = new Runnable() {
-//            @Override
-//            public void run() {
-//                Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
-//            }
-//        };
-//        mainHandler.post(myRunnable);
-//    }
-
     void updateTarget(@Nullable Rect2d obj) {
         if (!mRun) return;
 
@@ -72,17 +61,11 @@ public class FollowMe implements AutoCloseable {
             return;
         }
 
-        if (VoiceControl.getInstance().isRecognizing()) { // 当前正在识别语音指令，不进行相应的动作
-            return;
-        }
-
-        if (!CollisionDetect.getInstance().isNormal() || CollisionDetect.getInstance().isInRescue()) { // 碰撞检测状态异常或正在救援，不进行相应的动作
-            return;
-        }
+        if (VoiceControl.getInstance().isRecognizing()) return;
+        if (!CollisionDetect.getInstance().isNormal() || CollisionDetect.getInstance().isInRescue()) return;
 
         if (mStatus != STATUS_.FOLLOWING) {
-            if (mTargetSeeker == null)
-                return;
+            if (mTargetSeeker == null) return;
             SegwayService.head().setMode(Head.MODE_SMOOTH_TACKING);
             SegwayService.speak(mContext.getString(R.string.on_person_found));
         }
@@ -97,92 +80,112 @@ public class FollowMe implements AutoCloseable {
 
     private void onNoObject() {
         if (!mRun) return;
+        if (VoiceControl.getInstance().isRecognizing()) return;
+        if (!CollisionDetect.getInstance().isNormal() || CollisionDetect.getInstance().isInRescue()) return;
 
-        if (VoiceControl.getInstance().isRecognizing()) { // 当前正在识别语音指令，不进行相应的动作
-            return;
-        }
-        if (!CollisionDetect.getInstance().isNormal() || CollisionDetect.getInstance().isInRescue()) { // 碰撞检测状态异常或正在救援，不进行相应的动作
-            return;
-        }
-
-        // 未达到判定目标丢失的阈值
         if (System.currentTimeMillis() - mLastObjectTime < OBJECT_LOST_MS)
             return;
 
-        // 寻找目标
         mTargetSeeker.startSeek();
     }
 
-    // 调整角度
+    // --- 优化：修正旋转方向逻辑 ---
     private void updateAngular(Rect2d obj) {
-        double dist = obj.x + obj.width / 2.0 - 0.5; // 目标中心距离图像中心的水平距离
-        if (abs(dist) > 0.05) {
+        // obj.x 是归一化坐标 (0.0 ~ 1.0)
+        // 图像已经做了镜像翻转 (Mirror)。
+        // 图像右侧 (x > 0.5) 对应现实世界的右侧。
+        // 图像左侧 (x < 0.5) 对应现实世界的左侧。
+
+        double dist = obj.x + obj.width / 2.0 - 0.5; // 目标中心距离图像中心的偏差
+
+        // 死区阈值，由 0.05 稍微调大到 0.08 防止抖动
+        if (abs(dist) > 0.08) {
             float irDistL = SegwayService.getRobotAllSensors().getInfraredData().getLeftDistance();
             float irDistR = SegwayService.getRobotAllSensors().getInfraredData().getRightDistance();
 
             float angularVelocity, incrementalYaw;
 
-            if (dist > 0.0) { // 在图像的右边，需要向左转（逆时针，正角速度）
-                if (irDistL < 500.0f) { // 左边距离比较近，不转底座、只转头（并且额外多转一点点）
+            // 增加一个比例系数 P，让转向更灵敏
+            float kP = 2.5f;
+
+            if (dist > 0.0) {
+                // 目标在图像右侧 (Real World Right) -> 需要向右转 (负角速度)
+
+                if (irDistR < 500.0f) { // 检查右侧障碍物 (原代码检查的是左侧，已修正)
+                    // 右边有障碍，不转底座，只转头
                     angularVelocity = 0.0f;
-                    incrementalYaw = (float) dist + 0.2f;
+                    // 头向右转 (负)
+                    incrementalYaw = -(float) dist - 0.2f;
                 } else {
-                    angularVelocity = (float) dist * 2.0f + SegwayService.head().getHeadJointYaw().getAngle();
-                    incrementalYaw = (float) dist;
+                    // 底座向右转 (负)
+                    angularVelocity = -(float) dist * kP;
+                    // 头跟随
+                    incrementalYaw = -(float) dist;
                 }
-            } else { // 在图像的左边，需要向右转（顺时针，负角速度）
-                if (irDistR < 500.0f) { // 右边距离比较近，不转底座、只转头（并且额外多转一点点）
+            } else {
+                // 目标在图像左侧 (Real World Left) -> 需要向左转 (正角速度)
+
+                if (irDistL < 500.0f) { // 检查左侧障碍物
                     angularVelocity = 0.0f;
-                    incrementalYaw = (float) dist - 0.2f;
+                    // 头向左转 (正)
+                    incrementalYaw = (float) abs(dist) + 0.2f;
                 } else {
-                    angularVelocity = (float) dist * 2.0f + SegwayService.head().getHeadJointYaw().getAngle();
-                    incrementalYaw = (float) dist;
+                    // 底座向左转 (正)
+                    angularVelocity = (float) abs(dist) * kP;
+                    incrementalYaw = (float) abs(dist);
                 }
             }
 
             SimpleMoveWrap.setAngularVelocity(angularVelocity);
             SegwayService.head().setIncrementalYaw(incrementalYaw);
+        } else {
+            // 在死区内，停止旋转，防止抖动
+            SimpleMoveWrap.setAngularVelocity(0.0f);
         }
     }
 
-    // 调整底座前进后退
     private void updateBaseLinear(Rect2d obj) {
-        if (obj.height > 0.90) { // 目标太高，几乎填满高度，略微后退 // 0.92
-            SimpleMoveWrap.setLinearVelocity(-0.2f); // -0.1
+        // 增加平滑逻辑，防止急停急起
+
+        if (obj.height > 0.90) { // 太近了，后退
+            SimpleMoveWrap.setLinearVelocity(-0.3f);
             return;
-        } else if (obj.height > 0.85) { // 目标太高，不动 // 0.86
+        } else if (obj.height > 0.75) { // 距离合适，停止 (扩大了停止范围 0.75~0.90)
             SimpleMoveWrap.setLinearVelocity(0.0f);
             return;
         }
 
-        double weightedWidth = obj.width * sqrt(obj.height); // 高度越小，说明人越不完整，在图像中就会越宽，需要缩小一些
-        if (weightedWidth < 0.20) { // 目标较小，前进 // 0.30 0.35
+        double weightedWidth = obj.width * sqrt(obj.height);
+
+        if (weightedWidth < 0.20) { // 目标较小/较远，前进
             float linearVelocity = 1.5f * (float)sqrt(0.20 - weightedWidth);
-            // 前进时如果近处没有障碍（红外和超声报告），可以适当提高速度
-//            float irDistL = SegwayService.getRobotAllSensors().getInfraredData().getLeftDistance();
-//            float irDistR = SegwayService.getRobotAllSensors().getInfraredData().getRightDistance();
+
             float usDist = SegwayService.getRobotAllSensors().getUltrasonicData().getDistance();
-            if (usDist >= 1500.0f) // 距离比较远，就适当提高速度
+            if (usDist >= 1500.0f)
                 linearVelocity *= 1.3f;
-            else if (usDist < 1000.0f) // 距离比较近，就适当降低速度
+            else if (usDist < 1000.0f)
                 linearVelocity *= (0.5f + 0.5f * usDist / 1000.0f);
 
+            // 限制最大速度，安全第一
+            if (linearVelocity > 1.2f) linearVelocity = 1.2f;
+
             SimpleMoveWrap.setLinearVelocity(linearVelocity);
-        } else if (weightedWidth > 0.35) { // 目标较大，后退 // 0.40 0.45
-            SimpleMoveWrap.setLinearVelocity(-1.5f * (float)sqrt(weightedWidth - 0.35)); // -1.25
+        } else if (weightedWidth > 0.35) { // 判定过大，后退
+            SimpleMoveWrap.setLinearVelocity(-1.0f * (float)sqrt(weightedWidth - 0.35));
+        } else {
+            // 处于中间状态，保持静止
+            SimpleMoveWrap.setLinearVelocity(0.0f);
         }
     }
 
-    // 调整头部俯仰
     private void updateHeadPitch(Rect2d obj) {
         double distTop = obj.y;
         double distBottom = 1.0 - obj.y - obj.height;
-        if (distTop < 0.10) { // 头太顶着顶部了，抬头
+        if (distTop < 0.10) {
             SegwayService.head().setIncrementalPitch(0.5f);
-            SimpleMoveWrap.setLinearVelocity(-0.3f); // 抬头一般应当伴随着后退
-        } else if (distTop > 1.1 * distBottom) { // 目标在图像偏下方，低头
+        } else if (distTop > 1.2 * distBottom) { // 稍微放宽低头阈值
             SegwayService.head().setIncrementalPitch(-(float)pow(distTop - distBottom, 2) - 0.1f);
-        } else if (distBottom > 1.1 * distTop) { // 目标在图像偏上方，仰头
+        } else if (distBottom > 1.2 * distTop) {
             SegwayService.head().setIncrementalPitch((float)pow(distBottom - distTop, 2) + 0.1f);
         }
     }
@@ -196,15 +199,12 @@ public class FollowMe implements AutoCloseable {
         SegwayService.head().setHeadJointYaw(0.0f);
         SegwayService.head().setWorldPitch(0.8f);
 
-        // 初始化并启动语音控制模块
         VoiceControl.init(mContext);
+        // ... (VoiceControl listener 代码保持不变)
         VoiceControl.getInstance().setWakeupStateListener(new VoiceControl.WakeupStateListener() {
             @Override
             public void onWakeup(int angle) {
-                // 记录唤醒声音来源
                 mWakeupWorldYaw = Util.regularAngle(SegwayService.sensor().getRobotAllSensors().getBasePose().getYaw() + (Util.PI_F *  angle / 180.0f));
-
-                // 停止运动，并将 head 朝向声音来源
                 SimpleMoveWrap.setLinearVelocity(0.0f);
                 SimpleMoveWrap.setAngularVelocity(0.0f);
                 SegwayService.head().setIncrementalYaw(Util.PI_F *  angle / 180.0f);
@@ -214,6 +214,7 @@ public class FollowMe implements AutoCloseable {
         VoiceControl.getInstance().setVoiceControlListener(new VoiceControl.VoiceControlListener() {
             @Override
             public void onVoiceControl(VoiceCommand.ACTION action) {
+                // 保持原有的 switch case 逻辑
                 switch (action) {
                     case TURN_LEFT:
                         turnLeft();
@@ -278,9 +279,10 @@ public class FollowMe implements AutoCloseable {
             }
         });
         VoiceControl.getInstance().start();
-        // 初始化并启动运动检测
         CollisionDetect.getInstance().start();
     }
+
+    // ... (保留 resetPosture, turnLeft 等辅助方法不变)
 
     private void resetPosture() {
         SimpleMoveWrap.setAngularVelocity(0.0f);
@@ -300,7 +302,6 @@ public class FollowMe implements AutoCloseable {
     private void turnToMe() {
         SimpleMoveWrap.setLinearVelocity(0.0f);
         SegwayService.head().setHeadJointYaw(0.0f);
-        // TODO: 原地旋转直到 mWakeupWorldYaw
     }
     private void moveAhead() {
         SimpleMoveWrap.setLinearVelocity(0.8f);
@@ -319,22 +320,18 @@ public class FollowMe implements AutoCloseable {
     private void lookFront() {
         SegwayService.head().setHeadJointYaw(0.0f);
     }
-
     private void keepMoving() {
-        SimpleMoveWrap.setLinearVelocity(1.0f);    //added by SC
+        SimpleMoveWrap.setLinearVelocity(1.0f);
         SimpleMoveWrap.setAngularVelocity(0.0f);
     }
-
     private void speedUp() {
-        SimpleMoveWrap.setLinearVelocity(1.5f);    //added by SC
+        SimpleMoveWrap.setLinearVelocity(1.5f);
         SimpleMoveWrap.setAngularVelocity(0.0f);
     }
-
     private void slowDown() {
-        SimpleMoveWrap.setLinearVelocity(0.5f);    //added by SC
+        SimpleMoveWrap.setLinearVelocity(0.5f);
         SimpleMoveWrap.setAngularVelocity(0.0f);
     }
-
     private void stopMove() {
         SimpleMoveWrap.setLinearVelocity(0.0f);
         SimpleMoveWrap.setAngularVelocity(0.0f);
