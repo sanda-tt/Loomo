@@ -45,7 +45,7 @@ public class MainActivity extends Activity implements VoiceControl.VoiceControlL
     public static final int FACE_MANAGE_REQUEST_CODE = 3;
     private static final String TAG = "LoomoDemo_MainActivity";
 
-    private static final boolean ENABLE_FACE_VERIFY = true;
+    private static final boolean ENABLE_FACE_VERIFY = false;
 
     static {
         System.loadLibrary("native-lib");

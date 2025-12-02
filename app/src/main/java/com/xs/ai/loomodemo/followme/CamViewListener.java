@@ -17,7 +17,6 @@ import org.opencv.imgproc.Imgproc;
 import static com.xs.ai.loomodemo.Util.regularAngle;
 
 public class CamViewListener implements CameraBridgeViewBase.CvCameraViewListener2 {
-//    static final String TAG = "CAMVIEWLISTENER";
 
     private NativeAlgo nativeAlgo;
 
@@ -41,77 +40,83 @@ public class CamViewListener implements CameraBridgeViewBase.CvCameraViewListene
     public void setFollowMe(FollowMe followMe) { mFollowMe = followMe; }
 
     private static final Scalar PERSON_COLOR = new Scalar(0, 255, 0, 255);
+    private static final Scalar TARGET_COLOR = new Scalar(255, 255, 0, 255); // 高亮当前追踪的目标
     private static final Scalar NON_PERSON_COLOR = new Scalar(255, 0, 0, 255);
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
 
         mRgba = inputFrame.rgba();
-        Core.flip(mRgba, mRgba, 1);
+        Core.flip(mRgba, mRgba, 1); // 镜像翻转
         if (!mIsFollowingMe || mFollowMe == null)
             return mRgba;
 
-//        long tim = System.currentTimeMillis(); // 记录当前帧时间
-        // 记录与当前图像关联的角度备用
         float curHeadJointYaw = SegwayService.head().getHeadJointYaw().getAngle();
         float curBaseTheta = SegwayService.sensor().getRobotAllSensors().getPose2D().getTheta();
-        float curHeadWorldYaw = curHeadJointYaw + curBaseTheta; // getHeadWorldYaw() 未实现，总是返回 0，所以自己把 base 和 head 相加得到绝对的 yaw
-        curHeadWorldYaw = regularAngle(curHeadWorldYaw); // 相加之后可能会超出 -pi ~ pi，需要归一化进来
+        float curHeadWorldYaw = regularAngle(curHeadJointYaw + curBaseTheta);
 
         MatOfRect personRects = new MatOfRect();
         MatOfRect nonPersonRects = new MatOfRect();
         MatOfInt4 nonPersonClassId = new MatOfInt4();
         nativeAlgo.detect(mRgba, personRects, nonPersonRects, nonPersonClassId);
 
-        {
-            Rect[] arr = nonPersonRects.toArray();
-            for (Rect rect : arr) {
-                Imgproc.rectangle(mRgba, rect.tl(), rect.br(), NON_PERSON_COLOR, 3);
+        // 绘制非人类物体
+        Rect[] arr = nonPersonRects.toArray();
+        for (Rect rect : arr) {
+            Imgproc.rectangle(mRgba, rect.tl(), rect.br(), NON_PERSON_COLOR, 3);
+        }
+
+        // 简单的物体识别播报逻辑 (保留原样)
+        if (!nonPersonClassId.empty()) {
+            int[] ids = nonPersonClassId.toArray();
+            StringBuilder strIds = new StringBuilder();
+            int n = ids.length / 4;
+            for (int i = 0; i < n; ++i) {
+                int id = ids[i * 4];
+                if (id <= 0) continue;
+                if (strIds.length() > 0) strIds.append(", ");
+                strIds.append(CocoClassName.name(id - 1));
             }
-
-            if (!nonPersonClassId.empty()) {
-                int[] ids = nonPersonClassId.toArray();
-                StringBuilder strIds = new StringBuilder();
-                int n = ids.length / 4; // 每个目标给出了 4 种可能的类别，按得分降序
-                for (int i = 0; i < n; ++i) {
-                    // 不检查边界，相信输入
-                    int id = ids[i * 4]; // 每个目标的第一种类别为得分最大的类别，进行记录，后三种类别作为参考
-                    if (id <= 0)
-                        continue;               //problem here!!! ???
-                    if (strIds.length() > 0)
-                        strIds.append(", ");
-                    strIds.append(CocoClassName.name(id - 1));
-                }
-
-                if (strIds.length() > 0) {
-                    SegwayService.speak("Oh, got a " + strIds);
-                }
+            if (strIds.length() > 0) {
+                SegwayService.speak("Oh, got a " + strIds);
             }
-
         }
 
         Rect[] objArray = personRects.toArray();
-        for (Rect rect : objArray)
-            Imgproc.rectangle(mRgba, rect.tl(), rect.br(), PERSON_COLOR, 3);
+        Rect bestTarget = null;
 
-        if (objArray.length >= 1) { // 检测到了目标
-            Rect tmp = objArray[0]; // 只 follow 第一个目标（这个目标应当是由 tracker 给定的）
-            // 将该目标转换为相对坐标
-            Rect2d rc = new Rect2d((double) tmp.x / mRgba.width(), (double) tmp.y / mRgba.height(),
-                    (double) tmp.width / mRgba.width(), (double) tmp.height / mRgba.height());
-            mFollowMe.updateTarget(rc); // Follow it!
-        } else { // 没有检测到目标
-            mFollowMe.updateTarget(null); // 没有目标也向 followme 报告，以便进行主动寻找目标等工作
+        // --- 优化：选择最接近画面中心的人 ---
+        if (objArray.length >= 1) {
+            double minOffset = Double.MAX_VALUE;
+            double centerX = mRgba.width() / 2.0;
+
+            for (Rect rect : objArray) {
+                Imgproc.rectangle(mRgba, rect.tl(), rect.br(), PERSON_COLOR, 3);
+
+                double itemCenterX = rect.x + rect.width / 2.0;
+                double offset = Math.abs(itemCenterX - centerX);
+
+                if (offset < minOffset) {
+                    minOffset = offset;
+                    bestTarget = rect;
+                }
+            }
+        }
+
+        if (bestTarget != null) {
+            // 用不同颜色标记当前锁定的目标
+            Imgproc.rectangle(mRgba, bestTarget.tl(), bestTarget.br(), TARGET_COLOR, 5);
+
+            Rect2d rc = new Rect2d((double) bestTarget.x / mRgba.width(), (double) bestTarget.y / mRgba.height(),
+                    (double) bestTarget.width / mRgba.width(), (double) bestTarget.height / mRgba.height());
+            mFollowMe.updateTarget(rc);
+        } else {
+            mFollowMe.updateTarget(null);
 
             FollowMe.STATUS_ status = mFollowMe.getStatus();
-            switch (status) {
-                case LOOK_FOR_TARGET:
-                    // 计算平均灰度
-                    float meanGrey = (float) Core.mean(inputFrame.gray()).val[0];
-                    mFollowMe.updateBrightness(curHeadWorldYaw, meanGrey);
-                    break;
-                default:
-                    break;
+            if (status == FollowMe.STATUS_.LOOK_FOR_TARGET) {
+                float meanGrey = (float) Core.mean(inputFrame.gray()).val[0];
+                mFollowMe.updateBrightness(curHeadWorldYaw, meanGrey);
             }
         }
 
